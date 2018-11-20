@@ -24,7 +24,7 @@ def softmax(x):
     """
 
     ### YOUR CODE HERE
-    
+    #implement the numerical stability
     x_max = tf.reduce_max(x, axis = 1, keep_dims = True)
     x_sub = tf.subtract(x, x_max)
     x_exp = tf.exp(x_sub)
