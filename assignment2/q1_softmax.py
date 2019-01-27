@@ -25,12 +25,11 @@ def softmax(x):
 
     ### YOUR CODE HERE
     #implement the numerical stability
-    x_max = tf.reduce_max(x, axis = 1, keep_dims = True)
-    x_sub = tf.subtract(x, x_max)
-    x_exp = tf.exp(x_sub)
-    sum_exp = tf.reduce_sum(x_exp, 1, keep_dims = True)
-    out = x_exp / sum_exp
-    
+    max_x = tf.reduce_max(x, axis = 1, keepdims = True)
+    sub_x = tf.subtract(x, max_x)
+    exp_x = tf.exp(sub_x)
+    sum_x = tf.reduce_sum(exp_x, axis = 1,keepdims = True)
+    out = exp_x / sum_x
     ### END YOUR CODE
 
     return out
@@ -61,8 +60,8 @@ def cross_entropy_loss(y, yhat):
     """
 
     ### YOUR CODE HERE
-    l_yat = tf.log(yhat)
-    product = tf.multiply(tf.to_float(y), l_yat)
+    log_hat = tf.log(yhat)
+    product = tf.multiply(tf.to_float(y), log_hat)
     out = tf.negative(tf.reduce_sum(product))
     ### END YOUR CODE
 
