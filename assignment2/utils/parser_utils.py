@@ -6,9 +6,10 @@ import time
 import os
 import logging
 from collections import Counter
-from general_utils import get_minibatches
+#from general_utils import get_minibatches
 from q2_parser_transitions import minibatch_parse
-
+import sys
+import time
 import numpy as np
 
 
@@ -18,6 +19,57 @@ UNK = '<UNK>'
 NULL = '<NULL>'
 ROOT = '<ROOT>'
 
+
+def get_minibatches(data, minibatch_size, shuffle=True):
+    """
+    Iterates through the provided data one minibatch at at time. You can use this function to
+    iterate through data in minibatches as follows:
+
+        for inputs_minibatch in get_minibatches(inputs, minibatch_size):
+            ...
+
+    Or with multiple data sources:
+
+        for inputs_minibatch, labels_minibatch in get_minibatches([inputs, labels], minibatch_size):
+            ...
+
+    Args:
+        data: there are two possible values:
+            - a list or numpy array
+            - a list where each element is either a list or numpy array
+        minibatch_size: the maximum number of items in a minibatch
+        shuffle: whether to randomize the order of returned data
+    Returns:
+        minibatches: the return value depends on data:
+            - If data is a list/array it yields the next minibatch of data.
+            - If data a list of lists/arrays it returns the next minibatch of each element in the
+              list. This can be used to iterate through multiple data sources
+              (e.g., features and labels) at the same time.
+
+    """
+    list_data = type(data) is list and (type(data[0]) is list or type(data[0]) is np.ndarray)
+    data_size = len(data[0]) if list_data else len(data)
+    indices = np.arange(data_size)
+    if shuffle:
+        np.random.shuffle(indices)
+    for minibatch_start in np.arange(0, data_size, minibatch_size):
+        minibatch_indices = indices[minibatch_start:minibatch_start + minibatch_size]
+        yield [_minibatch(d, minibatch_indices) for d in data] if list_data \
+            else _minibatch(data, minibatch_indices)
+
+
+def _minibatch(data, minibatch_idx):
+    return data[minibatch_idx] if type(data) is np.ndarray else [data[i] for i in minibatch_idx]
+
+
+def test_all_close(name, actual, expected):
+    if actual.shape != expected.shape:
+        raise ValueError("{:} failed, expected output to have shape {:} but has shape {:}"
+                         .format(name, expected.shape, actual.shape))
+    if np.amax(np.fabs(actual - expected)) > 1e-6:
+        raise ValueError("{:} failed, expected {:} but value is {:}".format(name, expected, actual))
+    else:
+        print(name, "passed!")
 
 class Config(object):
     language = 'english'
@@ -122,7 +174,7 @@ class Parser(object):
             p_features = [self.P_NULL] * (3 - len(stack)) + [ex['pos'][x] for x in stack[-3:]]
             p_features += [ex['pos'][x] for x in buf[:3]] + [self.P_NULL] * (3 - len(buf))
 
-        for i in xrange(2):
+        for i in range(2):
             if i < len(stack):
                 k = stack[-i-1]
                 lc = get_lc(k)
@@ -199,10 +251,10 @@ class Parser(object):
 
             # arcs = {(h, t, label)}
             stack = [0]
-            buf = [i + 1 for i in xrange(n_words)]
+            buf = [i + 1 for i in range(n_words)]
             arcs = []
             instances = []
-            for i in xrange(n_words * 2):
+            for i in range(n_words * 2):
                 gold_t = self.get_oracle(stack, buf, ex)
                 if gold_t is None:
                     break
@@ -340,7 +392,7 @@ def minibatches(data, batch_size):
 def load_and_preprocess_data(reduced=True):
     config = Config()
 
-    print "Loading data...",
+    print("Loading data...",)
     start = time.time()
     train_set = read_conll(os.path.join(config.data_path, config.train_file),
                            lowercase=config.lowercase)
@@ -352,14 +404,14 @@ def load_and_preprocess_data(reduced=True):
         train_set = train_set[:1000]
         dev_set = dev_set[:500]
         test_set = test_set[:500]
-    print "took {:.2f} seconds".format(time.time() - start)
+    print("took {:.2f} seconds".format(time.time() - start))
 
-    print "Building parser...",
+    print("Building parser...",)
     start = time.time()
     parser = Parser(train_set)
-    print "took {:.2f} seconds".format(time.time() - start)
+    print("took {:.2f} seconds".format(time.time() - start))
 
-    print "Loading pretrained embeddings...",
+    print("Loading pretrained embeddings...",)
     start = time.time()
     word_vectors = {}
     for line in open(config.embedding_file).readlines():
@@ -373,19 +425,19 @@ def load_and_preprocess_data(reduced=True):
             embeddings_matrix[i] = word_vectors[token]
         elif token.lower() in word_vectors:
             embeddings_matrix[i] = word_vectors[token.lower()]
-    print "took {:.2f} seconds".format(time.time() - start)
+    print("took {:.2f} seconds".format(time.time() - start))
 
-    print "Vectorizing data...",
+    print ("Vectorizing data...",)
     start = time.time()
     train_set = parser.vectorize(train_set)
     dev_set = parser.vectorize(dev_set)
     test_set = parser.vectorize(test_set)
-    print "took {:.2f} seconds".format(time.time() - start)
+    print ("took {:.2f} seconds".format(time.time() - start))
 
-    print "Preprocessing training data...",
+    print ("Preprocessing training data...",)
     start = time.time()
     train_examples = parser.create_instances(train_set)
-    print "took {:.2f} seconds".format(time.time() - start)
+    print ("took {:.2f} seconds".format(time.time() - start))
 
     return parser, embeddings_matrix, train_examples, dev_set, test_set,
 
